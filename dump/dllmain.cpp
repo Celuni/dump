@@ -7,7 +7,7 @@ void __stdcall main_thread( HMODULE current_module )
 	AllocConsole( );
 	freopen_s( reinterpret_cast< FILE * * >( stdin ), "CONIN$", "r", stdin );
 	freopen_s( reinterpret_cast< FILE * * >( stdout ), "CONOUT$", "w", stdout );
-	SetConsoleTitleA( "[~] starcaller.wtf [R6S]" );
+	SetConsoleTitleA( "[~] starcaller dumper" );
 
 	if ( !memory::initialize( ) )
 	{
