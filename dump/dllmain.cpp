@@ -17,12 +17,12 @@ void __stdcall main_thread() {
 	std::printf("[+] image start: 0x%llx\n", memory::module_info.first);
 	std::printf("[+] image size: 0x%llx\n", memory::module_info.second);
 
-	auto push_address = [&](const char* name, const std::uintptr_t current_address) {
+	auto push_address = [&](const char* name, const std::uintptr_t current_address, const std::int32_t rip_relative = 4) {
 		if (current_address <= 0x5) {
 			std::printf("[!] couldn't get %s\n", name);
 			return;
 		}
-		const auto relative_address = current_address + *reinterpret_cast<std::uint32_t*>(current_address) + 0x4;
+		const auto relative_address = current_address + *reinterpret_cast<std::uint32_t*>(current_address) + rip_relative;
 		std::printf("[+] %s found at: 0x%llx\n", name, relative_address - memory::module_info.first);
 	};
 
@@ -37,10 +37,8 @@ void __stdcall main_thread() {
 }
 
 bool __stdcall DllMain(HMODULE module_entry, std::uint32_t call_reason, void*) {
-	if (call_reason == DLL_PROCESS_ATTACH) 
-		return CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(main_thread), nullptr, 0, nullptr) != INVALID_HANDLE_VALUE;
-	 else 
-		return false; 
+    if (call_reason == DLL_PROCESS_ATTACH) 
+	 return CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(main_thread), nullptr, 0, nullptr) != INVALID_HANDLE_VALUE;
 
-    return true;
+    return false;
 }
