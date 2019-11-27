@@ -5,29 +5,40 @@
 void __stdcall main_thread( HMODULE current_module )
 {
 	AllocConsole( );
-	freopen_s( reinterpret_cast< FILE * * >( stdin ), "CONIN$", "r", stdin );
-	freopen_s( reinterpret_cast< FILE * * >( stdout ), "CONOUT$", "w", stdout );
+	freopen_s( reinterpret_cast< FILE** >( stdin ), "CONIN$", "r", stdin );
+	freopen_s( reinterpret_cast< FILE** >( stdout ), "CONOUT$", "w", stdout );
+	
 	SetConsoleTitleA( "[~] starcaller dumper" );
 
+	const auto exit_procedure = [&]( )
+	{
+		_fcloseall( );
+		PostMessage( GetConsoleWindow( ), WM_CLOSE, 0, 0 );
+		FreeConsole( );
+		FreeLibraryAndExitThread( current_module, EXIT_SUCCESS );
+	};
+	
 	if ( !memory::initialize( ) )
 	{
 		std::printf( "[-] fail, couldn't get image size/base\n" );
 		std::this_thread::sleep_for( std::chrono::seconds( 10 ) );
-		FreeLibraryAndExitThread( current_module, EXIT_FAILURE );
+		exit_procedure( );
 	}
 
 	std::printf( "[+] image start: 0x%llx\n", memory::module_info.first );
 	std::printf( "[+] image size: 0x%llx\n", memory::module_info.second );
 
-	const auto push_address = [ & ]( const char* name, const std::uintptr_t current_address, const std::int32_t relative = 4 )
+	const auto push_address = [ ]( const std::string_view name, const std::uintptr_t current_address, const std::uint32_t relative = 4 )
 	{
 		if ( current_address <= 0x5 )
 		{
-			std::printf( "[!] couldn't get %s\n", name );
+			std::printf( "[!] couldn't get %s\n", name.data( ) );
 			return;
 		}
+		
 		const auto relative_address = current_address + *reinterpret_cast< std::int32_t* >( current_address ) + relative;
-		std::printf( "[+] %s found at: 0x%llx\n", name, relative_address - memory::module_info.first );
+		
+		std::printf( "[+] %s found at: 0x%llx\n", name.data( ), relative_address - memory::module_info.first );
 	};
 
 	push_address( "game manager", memory::pattern_scan( "\x48\x8b\x05\x00\x00\x00\x00\x8b\x8e", "xxx????xx" ) + 0x3 );
@@ -42,14 +53,16 @@ void __stdcall main_thread( HMODULE current_module )
 
 	while ( !GetAsyncKeyState( VK_END ) )
 		std::this_thread::sleep_for( std::chrono::milliseconds( 50 ) );
-
-	FreeConsole( );
-	FreeLibraryAndExitThread( current_module, EXIT_SUCCESS );
+	
+	exit_procedure( );
 }
 
 bool __stdcall DllMain(HMODULE module_entry, std::uint32_t call_reason, void*) {
-	if (call_reason == DLL_PROCESS_ATTACH)
-		return CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(main_thread), module_entry, 0, nullptr) != INVALID_HANDLE_VALUE;
+	if (call_reason != DLL_PROCESS_ATTACH)
+		return false;
+	
+	if ( const auto handle = CreateThread(nullptr, 0, reinterpret_cast<LPTHREAD_START_ROUTINE>(main_thread), module_entry, 0, nullptr); handle != nullptr )
+		CloseHandle( handle );
 
 	return false;
 }
